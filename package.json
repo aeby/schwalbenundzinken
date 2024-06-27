@@ -21,12 +21,14 @@
   },
   "dependencies": {
     "@lit/localize": "^0.12.1",
-    "lit": "^3.1.2"
+    "lit": "^3.1.2",
+    "three": "^0.165.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.3.0",
     "@lit/localize-tools": "^0.7.2",
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
+    "@types/three": "^0.165.0",
     "eslint": "9.x",
     "globals": "^15.3.0",
     "husky": "^9.0.11",
