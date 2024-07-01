@@ -223,7 +223,7 @@ export class DovetailCalculator extends LitElement {
           .tailsCount=${this.tailsCount}
           .pinWidth=${this.pinWidth}
           .tailWidth=${this.tailWidth}
-          .tailMarkOffset=${this.tailMarkOffset}
+          .angle=${this.angle}
         ></dt-preview-3d>
       </section>
 
@@ -284,7 +284,7 @@ export class DovetailCalculator extends LitElement {
     }
 
     section.preview {
-      max-width: auto;
+      max-width: none;
     }
 
     section.footer {
