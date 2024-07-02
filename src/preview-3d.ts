@@ -4,7 +4,6 @@ import {
   BoxGeometry,
   DirectionalLight,
   ExtrudeGeometry,
-  GridHelper,
   Group,
   HemisphereLight,
   Material,
@@ -36,8 +35,8 @@ export class Preview3D extends LitElement {
   private scene = new Scene();
   private camera = new PerspectiveCamera(45, 1);
   private controls = new OrbitControls(this.camera, this.renderer.domElement);
-  private tailMaterial = new MeshStandardMaterial({ color: 0x92663e });
-  private pinMaterial = new MeshStandardMaterial({ color: 0xcda678 });
+  private tailMaterial = new MeshStandardMaterial({ color: 0x888888 });
+  private pinMaterial = new MeshStandardMaterial({ color: 0xbbbbbb });
   private tailGroup = new Group();
   private pinGroup = new Group();
   private assembled = true;
@@ -257,18 +256,12 @@ export class Preview3D extends LitElement {
   }
 
   private setupScene() {
-    const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2);
+    const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2.4);
     this.scene.add(ambientLight);
 
     const directionalLight = new DirectionalLight(0xffffff, 2);
     directionalLight.position.set(1, 1, 20).normalize();
     this.scene.add(directionalLight);
-
-    const size = 50;
-    const divisions = 50;
-
-    const gridHelper = new GridHelper(size, divisions, 0xdddddd, 0xeeeeee);
-    this.scene.add(gridHelper);
   }
 
   private loop = () => {
@@ -287,7 +280,7 @@ export class Preview3D extends LitElement {
       }
     }
 
-    if (!this.assembled && this.tailGroup.position.z < this.depth * 2) {
+    if (!this.assembled && this.tailGroup.position.z < this.depth * 3) {
       this.tailGroup.position.z += 0.2;
     }
   }
