@@ -5,7 +5,9 @@ import {
   DirectionalLight,
   ExtrudeGeometry,
   GridHelper,
+  Group,
   HemisphereLight,
+  Material,
   Mesh,
   MeshStandardMaterial,
   PerspectiveCamera,
@@ -34,7 +36,11 @@ export class Preview3D extends LitElement {
   private scene = new Scene();
   private camera = new PerspectiveCamera(45, 1);
   private controls = new OrbitControls(this.camera, this.renderer.domElement);
-  private meshes: Mesh[] = [];
+  private tailMaterial = new MeshStandardMaterial({ color: 0x92663e });
+  private pinMaterial = new MeshStandardMaterial({ color: 0xcda678 });
+  private tailGroup = new Group();
+  private pinGroup = new Group();
+  private assembled = true;
 
   @property()
   workpieceWidth = 0;
@@ -52,19 +58,99 @@ export class Preview3D extends LitElement {
   tailWidth = 0;
 
   @property()
-  angle = 0;
+  tailMarkOffset = 0;
+
+  get width(): number {
+    return this.workpieceWidth / 10;
+  }
+
+  get height(): number {
+    return this.width * 0.7;
+  }
+
+  get depth(): number {
+    return this.workpieceHeight / 10;
+  }
+
+  get cornerOffset(): number {
+    return this.tailMarkOffset / 10;
+  }
 
   constructor() {
     super();
 
-    this.renderer.setAnimationLoop(this._animate);
+    this.setupScene();
+    this.renderer.setAnimationLoop(this.loop);
+  }
 
+  protected firstUpdated() {
+    const container = this.shadowRoot?.getElementById("container");
+
+    if (container) {
+      container.appendChild(this.renderer.domElement);
+      this.renderWorkpiece();
+      this.handleResize();
+    }
+
+    this.setupControls();
+  }
+
+  updated() {
+    this.renderWorkpiece();
+  }
+
+  render() {
+    return html`
+      <div id="container"></div>
+      <div class="modifiers">
+        <input
+          type="checkbox"
+          id="assembled"
+          name="assembled"
+          checked
+          @change=${this.onAssembledChange.bind(this)}
+        />
+        <label for="assembled">Assembled</label>
+      </div>
+    `;
+  }
+
+  private renderWorkpiece() {
+    this.pinGroup.clear();
+    this.tailGroup.clear();
+
+    const pinBoard = new BoxGeometry(this.width, this.height, this.depth);
+    pinBoard.rotateX(Math.PI / 2);
+    pinBoard.translate(0, this.depth / 2, 0);
+
+    const pinBoardMesh = new Mesh(pinBoard, this.pinMaterial);
+
+    this.pinGroup.add(pinBoardMesh);
+    this.scene.add(this.pinGroup);
+
+    const tailBoard = new BoxGeometry(this.width, this.height, this.depth);
+    tailBoard.translate(
+      0,
+      this.height / 2 + this.depth,
+      this.height / 2 + this.depth / 2,
+    );
+
+    const tailBoardMesh = new Mesh(tailBoard, this.tailMaterial);
+
+    this.tailGroup.add(tailBoardMesh);
+    this.scene.add(this.tailGroup);
+
+    this.addParts(this.pinGroup, this.tailGroup);
+  }
+
+  private setupControls() {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.15;
+    this.camera.position.set(0, this.height / 2, 20);
+    this.controls.target.set(0, this.height / 2, 0);
+  }
 
-    this.camera.position.set(0, 5, 20);
-    this.controls.target.set(0, 5, 0);
-
+  private setupScene() {
     const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2);
     this.scene.add(ambientLight);
 
@@ -79,23 +165,26 @@ export class Preview3D extends LitElement {
     this.scene.add(gridHelper);
   }
 
-  protected firstUpdated() {
-    const container = this.shadowRoot?.getElementById("container");
-
-    if (container) {
-      container.appendChild(this.renderer.domElement);
-      this.renderWorkpiece();
-      this._handleResize();
-    }
-  }
-
-  private _animate = () => {
+  private loop = () => {
     this.controls.update();
-    this._handleResize();
+    this.handleResize();
+
+    if (this.assembled && this.tailGroup.position.z > 0) {
+      this.tailGroup.position.z -= 0.2;
+
+      if (this.tailGroup.position.z < 0) {
+        this.tailGroup.position.z = 0;
+      }
+    }
+
+    if (!this.assembled && this.tailGroup.position.z < this.depth * 2) {
+      this.tailGroup.position.z += 0.2;
+    }
+
     this.renderer.render(this.scene, this.camera);
   };
 
-  private _handleResize = () => {
+  private handleResize = () => {
     const canvas = this.renderer.domElement;
 
     const width = canvas.clientWidth;
@@ -108,6 +197,11 @@ export class Preview3D extends LitElement {
     }
   };
 
+  private onAssembledChange(e: Event): void {
+    this.assembled = (e.target as HTMLInputElement).checked;
+    console.log(this.assembled);
+  }
+
   private partShape(part: Part): Shape {
     const shape = new Shape();
     shape.moveTo(part.bottomLeft.x, part.bottomLeft.y);
@@ -118,101 +212,99 @@ export class Preview3D extends LitElement {
     return shape;
   }
 
-  private getParts(): ReadonlyArray<Mesh> {
-    const parts = [];
-    const tails = [];
+  private addParts(pinBoard: Group, tailBoard: Group) {
+    const xOffset = this.width / 2;
+    const yOffset = this.depth / 2;
 
-    const width = this.workpieceWidth / 10;
-    const height = width * 0.7;
-    const depth = this.workpieceHeight / 10;
+    const centerLineOffset = this.workpieceHeight / 10 / 2;
 
-    const xOffset = width / 2;
-    const yOffset = depth / 2;
-
-    const d = this.workpieceHeight / 10 / 2;
-
-    const a = Math.PI / 2 - this.angle;
-    const l = Math.PI / 2 - a;
-    const r = Math.PI / 2 + a;
+    // Initialize first pin
+    const currentPin = {
+      bottomLeft: { x: -xOffset, y: -centerLineOffset + yOffset },
+      topLeft: { x: -xOffset, y: centerLineOffset + yOffset },
+      bottomRight: { x: 0, y: 0 },
+      topRight: { x: 0, y: 0 },
+    };
 
     for (let i = 0; i < this.tailsCount; i += 1) {
       const base = i * (this.pinWidth + this.tailWidth);
       const markLeft = (base + this.pinWidth) / 10;
       const markRight = (base + this.pinWidth + this.tailWidth) / 10;
 
-      const tailPart = {
-        bottomLeft: {
-          x: markLeft - d / Math.tan(l) - xOffset,
-          y: -d + yOffset,
-        },
-        topLeft: { x: markLeft + d / Math.tan(l) - xOffset, y: d + yOffset },
-        bottomRight: {
-          x: markRight - d / Math.tan(r) - xOffset,
-          y: -d + yOffset,
-        },
-        topRight: { x: markRight + d / Math.tan(r) - xOffset, y: d + yOffset },
+      // Finish Pin
+      currentPin.topRight = {
+        x: markLeft + this.cornerOffset - xOffset,
+        y: centerLineOffset + yOffset,
+      };
+      currentPin.bottomRight = {
+        x: markLeft - this.cornerOffset - xOffset,
+        y: -centerLineOffset + yOffset,
+      };
+      const s = this.partShape(currentPin);
+      const p = this.partMesh(s, this.pinMaterial);
+      p.translateZ(this.height / 2);
+      pinBoard.add(p);
+
+      currentPin.bottomLeft = {
+        x: markRight + this.cornerOffset - xOffset,
+        y: centerLineOffset - yOffset,
+      };
+      currentPin.topLeft = {
+        x: markRight - this.cornerOffset - xOffset,
+        y: centerLineOffset + yOffset,
       };
 
-      tails.push(tailPart);
+      // Complete last pin
+      if (i === this.tailsCount - 1) {
+        currentPin.topRight = {
+          x: this.width - xOffset,
+          y: centerLineOffset + yOffset,
+        };
+        currentPin.bottomRight = {
+          x: this.width - xOffset,
+          y: -centerLineOffset + yOffset,
+        };
+        const shape = this.partShape(currentPin);
+        const part = this.partMesh(shape, this.pinMaterial);
+        part.translateZ(this.height / 2);
+        pinBoard.add(part);
+      }
+
+      const tailPart = {
+        bottomLeft: {
+          x: markLeft - this.cornerOffset - xOffset,
+          y: -centerLineOffset + yOffset,
+        },
+        topLeft: {
+          x: markLeft + this.cornerOffset - xOffset,
+          y: centerLineOffset + yOffset,
+        },
+        bottomRight: {
+          x: markRight + this.cornerOffset - xOffset,
+          y: -centerLineOffset + yOffset,
+        },
+        topRight: {
+          x: markRight - this.cornerOffset - xOffset,
+          y: centerLineOffset + yOffset,
+        },
+      };
 
       const shape = this.partShape(tailPart);
-      const part = this.partMesh(shape, 0x92663e);
+      const part = this.partMesh(shape, this.tailMaterial);
 
-      part.translateZ(height / 2);
+      part.translateZ(this.height / 2);
 
-      parts.push(part);
+      tailBoard.add(part);
     }
-    return parts;
   }
 
-  private partMesh(shape: Shape, color: number) {
+  private partMesh(shape: Shape, material: Material) {
     const geometry = new ExtrudeGeometry(shape, {
-      depth: this.workpieceHeight / 10,
+      depth: this.depth,
       bevelEnabled: false,
     });
 
-    return new Mesh(geometry, new MeshStandardMaterial({ color }));
-  }
-
-  updated() {
-    this.renderWorkpiece();
-  }
-
-  private renderWorkpiece() {
-    this.scene.remove(...this.meshes);
-
-    const panelMaterial = new MeshStandardMaterial({ color: 0xcda678 });
-    const panelMaterialTest = new MeshStandardMaterial({ color: 0x92663e });
-
-    const width = this.workpieceWidth / 10;
-    const height = width * 0.7;
-    const depth = this.workpieceHeight / 10;
-
-    const pinBoard = new BoxGeometry(width, height, depth);
-    pinBoard.rotateX(Math.PI / 2);
-    pinBoard.translate(0, depth / 2, 0);
-
-    const pinBoardMesh = new Mesh(pinBoard, panelMaterial);
-
-    this.scene.add(pinBoardMesh);
-    this.meshes.push(pinBoardMesh);
-
-    this.getParts().forEach((part) => {
-      this.scene.add(part);
-      this.meshes.push(part);
-    });
-
-    const panelFront = new BoxGeometry(width, height, depth);
-    panelFront.translate(0, height / 2 + depth, height / 2 + depth / 2);
-
-    const panelFrontMesh = new Mesh(panelFront, panelMaterialTest);
-
-    this.scene.add(panelFrontMesh);
-    this.meshes.push(panelFrontMesh);
-  }
-
-  render() {
-    return html` <div id="container"></div>`;
+    return new Mesh(geometry, material);
   }
 
   static styles = css`
@@ -220,6 +312,10 @@ export class Preview3D extends LitElement {
       border: 1px solid #eee;
       box-sizing: border-box;
       width: 100%;
+    }
+
+    .modifiers {
+      padding-top: 0.5rem;
     }
   `;
 }

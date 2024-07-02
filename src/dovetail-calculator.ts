@@ -7,7 +7,6 @@ import "./form";
 import { allLocales } from "./generated/locale-codes";
 import "./info";
 import "./marks";
-import "./preview";
 import "./preview-3d";
 import { getLocale, setInitialLocale, updateLocale } from "./utils/locale";
 
@@ -205,17 +204,6 @@ export class DovetailCalculator extends LitElement {
         ></dt-info>
       </section>
 
-      <section>
-        <dt-preview
-          .workpieceWidth=${this.workpieceWidth}
-          .workpieceHeight=${this.workpieceHeight}
-          .tailsCount=${this.tailsCount}
-          .pinWidth=${this.pinWidth}
-          .tailWidth=${this.tailWidth}
-          .tailMarkOffset=${this.tailMarkOffset}
-        ></dt-preview>
-      </section>
-
       <section class="preview-3d">
         <dt-preview-3d
           .workpieceWidth=${this.workpieceWidth}
@@ -223,7 +211,7 @@ export class DovetailCalculator extends LitElement {
           .tailsCount=${this.tailsCount}
           .pinWidth=${this.pinWidth}
           .tailWidth=${this.tailWidth}
-          .angle=${this.angle}
+          .tailMarkOffset=${this.tailMarkOffset}
         ></dt-preview-3d>
       </section>
 
