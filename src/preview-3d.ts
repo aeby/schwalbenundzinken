@@ -41,6 +41,7 @@ export class Preview3D extends LitElement {
   private pinGroup = new Group();
   private assembled = true;
   private scale = 0.1;
+  private animationSpeed = 0.3;
 
   @property()
   workpieceWidth = 0;
@@ -65,7 +66,7 @@ export class Preview3D extends LitElement {
   }
 
   get height(): number {
-    return this.width * 0.7;
+    return this.width * 0.6;
   }
 
   get depth(): number {
@@ -126,7 +127,6 @@ export class Preview3D extends LitElement {
     const pinBoardMesh = new Mesh(pinBoard, this.pinMaterial);
 
     this.pinGroup.add(pinBoardMesh);
-    this.scene.add(this.pinGroup);
 
     const tailBoard = new BoxGeometry(this.width, this.height, this.depth);
     tailBoard.translate(
@@ -138,7 +138,6 @@ export class Preview3D extends LitElement {
     const tailBoardMesh = new Mesh(tailBoard, this.tailMaterial);
 
     this.tailGroup.add(tailBoardMesh);
-    this.scene.add(this.tailGroup);
 
     this.addParts(this.pinGroup, this.tailGroup);
   }
@@ -256,12 +255,17 @@ export class Preview3D extends LitElement {
   }
 
   private setupScene() {
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+
     const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2.4);
     this.scene.add(ambientLight);
 
     const directionalLight = new DirectionalLight(0xffffff, 2);
     directionalLight.position.set(1, 1, 20).normalize();
     this.scene.add(directionalLight);
+
+    this.scene.add(this.tailGroup);
+    this.scene.add(this.pinGroup);
   }
 
   private loop = () => {
@@ -273,7 +277,7 @@ export class Preview3D extends LitElement {
 
   private animateTailBoard() {
     if (this.assembled && this.tailGroup.position.z > 0) {
-      this.tailGroup.position.z -= 0.2;
+      this.tailGroup.position.z -= this.animationSpeed;
 
       if (this.tailGroup.position.z < 0) {
         this.tailGroup.position.z = 0;
@@ -281,7 +285,7 @@ export class Preview3D extends LitElement {
     }
 
     if (!this.assembled && this.tailGroup.position.z < this.depth * 3) {
-      this.tailGroup.position.z += 0.2;
+      this.tailGroup.position.z += this.animationSpeed;
     }
   }
 
