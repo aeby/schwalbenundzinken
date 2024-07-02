@@ -30,6 +30,7 @@ export const templates = {
   saad72578f030aacd: `fine`,
   sb1a53cd9697257e1: `https://www.youtube.com/watch?v=OhKzkUbvSC8`,
   sb38cd24a8470eada: `Veuillez utiliser et partager, ceci est un logiciel libre sous les termes de la Licence Apache 2.0.`,
+  sbd37677b0ba4fc9f: `Assemblé`,
   sc76a095e1ffa22b6: `moyenne`,
   scc11850e140eab25: `Pièces`,
   se9bed519c6a36725: `Mâles`,

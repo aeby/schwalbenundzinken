@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { localized, msg } from "@lit/localize";
 import {
   BoxGeometry,
   DirectionalLight,
@@ -30,6 +31,7 @@ interface Part {
 }
 
 @customElement("dt-preview-3d")
+@localized()
 export class Preview3D extends LitElement {
   private renderer = new WebGLRenderer({ antialias: true, alpha: true });
   private scene = new Scene();
@@ -111,22 +113,27 @@ export class Preview3D extends LitElement {
           checked
           @change=${this.onAssembledChange.bind(this)}
         />
-        <label for="assembled">Assembled</label>
+        <label for="assembled">${msg("Assembled")}</label>
       </div>
     `;
   }
 
   private renderWorkpiece() {
+    this.clearGroups();
+    this.addBoards();
+    this.addParts();
+  }
+
+  private clearGroups() {
     this.pinGroup.clear();
     this.tailGroup.clear();
+  }
 
+  private addBoards() {
     const pinBoard = new BoxGeometry(this.width, this.height, this.depth);
     pinBoard.rotateX(Math.PI / 2);
     pinBoard.translate(0, this.depth / 2, 0);
-
-    const pinBoardMesh = new Mesh(pinBoard, this.pinMaterial);
-
-    this.pinGroup.add(pinBoardMesh);
+    this.pinGroup.add(new Mesh(pinBoard, this.pinMaterial));
 
     const tailBoard = new BoxGeometry(this.width, this.height, this.depth);
     tailBoard.translate(
@@ -134,101 +141,151 @@ export class Preview3D extends LitElement {
       this.height / 2 + this.depth,
       this.height / 2 + this.depth / 2,
     );
-
-    const tailBoardMesh = new Mesh(tailBoard, this.tailMaterial);
-
-    this.tailGroup.add(tailBoardMesh);
-
-    this.addParts(this.pinGroup, this.tailGroup);
+    this.tailGroup.add(new Mesh(tailBoard, this.tailMaterial));
   }
 
-  private addParts(pinBoard: Group, tailBoard: Group) {
+  private addParts() {
     const xOffset = this.width / 2;
     const yOffset = this.depth / 2;
+    const centerLineOffset = this.depth / 2;
 
-    const centerLineOffset = this.workpieceHeight / 10 / 2;
+    const currentPin = this.initializePin(xOffset, yOffset, centerLineOffset);
 
-    // Initialize first pin
-    const currentPin = {
+    for (let i = 0; i < this.tailsCount; i += 1) {
+      const base = i * (this.pinWidth + this.tailWidth);
+      const markLeft = (base + this.pinWidth) * this.scale;
+      const markRight = (base + this.pinWidth + this.tailWidth) * this.scale;
+
+      this.finalizePin(
+        currentPin,
+        markLeft,
+        xOffset,
+        yOffset,
+        centerLineOffset,
+      );
+      this.addPartToBoard(this.pinGroup, currentPin, this.pinMaterial);
+      this.updatePinForNextCycle(
+        currentPin,
+        markRight,
+        xOffset,
+        yOffset,
+        centerLineOffset,
+      );
+
+      if (i === this.tailsCount - 1) {
+        this.finalizeLastPin(currentPin, xOffset, yOffset, centerLineOffset);
+        this.addPartToBoard(this.pinGroup, currentPin, this.pinMaterial);
+      }
+
+      const tailPart = this.createTailPart(
+        markLeft,
+        markRight,
+        xOffset,
+        yOffset,
+        centerLineOffset,
+      );
+      this.addPartToBoard(this.tailGroup, tailPart, this.tailMaterial);
+    }
+  }
+
+  private initializePin(
+    xOffset: number,
+    yOffset: number,
+    centerLineOffset: number,
+  ): Part {
+    return {
       bottomLeft: { x: -xOffset, y: -centerLineOffset + yOffset },
       topLeft: { x: -xOffset, y: centerLineOffset + yOffset },
       bottomRight: { x: 0, y: 0 },
       topRight: { x: 0, y: 0 },
     };
-
-    for (let i = 0; i < this.tailsCount; i += 1) {
-      const base = i * (this.pinWidth + this.tailWidth);
-      const markLeft = (base + this.pinWidth) / 10;
-      const markRight = (base + this.pinWidth + this.tailWidth) / 10;
-
-      // Finish Pin
-      currentPin.topRight = {
-        x: markLeft + this.cornerOffset - xOffset,
-        y: centerLineOffset + yOffset,
-      };
-      currentPin.bottomRight = {
-        x: markLeft - this.cornerOffset - xOffset,
-        y: -centerLineOffset + yOffset,
-      };
-      const s = this.partShape(currentPin);
-      const p = this.partMesh(s, this.pinMaterial);
-      p.translateZ(this.height / 2);
-      pinBoard.add(p);
-
-      currentPin.bottomLeft = {
-        x: markRight + this.cornerOffset - xOffset,
-        y: centerLineOffset - yOffset,
-      };
-      currentPin.topLeft = {
-        x: markRight - this.cornerOffset - xOffset,
-        y: centerLineOffset + yOffset,
-      };
-
-      // Complete last pin
-      if (i === this.tailsCount - 1) {
-        currentPin.topRight = {
-          x: this.width - xOffset,
-          y: centerLineOffset + yOffset,
-        };
-        currentPin.bottomRight = {
-          x: this.width - xOffset,
-          y: -centerLineOffset + yOffset,
-        };
-        const shape = this.partShape(currentPin);
-        const part = this.partMesh(shape, this.pinMaterial);
-        part.translateZ(this.height / 2);
-        pinBoard.add(part);
-      }
-
-      const tailPart = {
-        bottomLeft: {
-          x: markLeft - this.cornerOffset - xOffset,
-          y: -centerLineOffset + yOffset,
-        },
-        topLeft: {
-          x: markLeft + this.cornerOffset - xOffset,
-          y: centerLineOffset + yOffset,
-        },
-        bottomRight: {
-          x: markRight + this.cornerOffset - xOffset,
-          y: -centerLineOffset + yOffset,
-        },
-        topRight: {
-          x: markRight - this.cornerOffset - xOffset,
-          y: centerLineOffset + yOffset,
-        },
-      };
-
-      const shape = this.partShape(tailPart);
-      const part = this.partMesh(shape, this.tailMaterial);
-
-      part.translateZ(this.height / 2);
-
-      tailBoard.add(part);
-    }
   }
 
-  private partShape(part: Part): Shape {
+  private finalizePin(
+    pin: Part,
+    markLeft: number,
+    xOffset: number,
+    yOffset: number,
+    centerLineOffset: number,
+  ) {
+    pin.topRight = {
+      x: markLeft + this.cornerOffset - xOffset,
+      y: centerLineOffset + yOffset,
+    };
+    pin.bottomRight = {
+      x: markLeft - this.cornerOffset - xOffset,
+      y: -centerLineOffset + yOffset,
+    };
+  }
+
+  private updatePinForNextCycle(
+    pin: Part,
+    markRight: number,
+    xOffset: number,
+    yOffset: number,
+    centerLineOffset: number,
+  ) {
+    pin.bottomLeft = {
+      x: markRight + this.cornerOffset - xOffset,
+      y: centerLineOffset - yOffset,
+    };
+    pin.topLeft = {
+      x: markRight - this.cornerOffset - xOffset,
+      y: centerLineOffset + yOffset,
+    };
+  }
+
+  private finalizeLastPin(
+    pin: Part,
+    xOffset: number,
+    yOffset: number,
+    centerLineOffset: number,
+  ) {
+    pin.topRight = {
+      x: this.width - xOffset,
+      y: centerLineOffset + yOffset,
+    };
+    pin.bottomRight = {
+      x: this.width - xOffset,
+      y: -centerLineOffset + yOffset,
+    };
+  }
+
+  private createTailPart(
+    markLeft: number,
+    markRight: number,
+    xOffset: number,
+    yOffset: number,
+    centerLineOffset: number,
+  ): Part {
+    return {
+      bottomLeft: {
+        x: markLeft - this.cornerOffset - xOffset,
+        y: -centerLineOffset + yOffset,
+      },
+      topLeft: {
+        x: markLeft + this.cornerOffset - xOffset,
+        y: centerLineOffset + yOffset,
+      },
+      bottomRight: {
+        x: markRight + this.cornerOffset - xOffset,
+        y: -centerLineOffset + yOffset,
+      },
+      topRight: {
+        x: markRight - this.cornerOffset - xOffset,
+        y: centerLineOffset + yOffset,
+      },
+    };
+  }
+
+  private addPartToBoard(board: Group, part: Part, material: Material) {
+    const shape = this.createPartShape(part);
+    const mesh = this.createPartMesh(shape, material);
+    mesh.translateZ(this.height / 2);
+    board.add(mesh);
+  }
+
+  private createPartShape(part: Part): Shape {
     const shape = new Shape();
     shape.moveTo(part.bottomLeft.x, part.bottomLeft.y);
     shape.lineTo(part.topLeft.x, part.topLeft.y);
@@ -238,7 +295,7 @@ export class Preview3D extends LitElement {
     return shape;
   }
 
-  private partMesh(shape: Shape, material: Material) {
+  private createPartMesh(shape: Shape, material: Material) {
     const geometry = new ExtrudeGeometry(shape, {
       depth: this.depth,
       bevelEnabled: false,

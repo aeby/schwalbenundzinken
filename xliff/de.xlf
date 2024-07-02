@@ -94,6 +94,10 @@
   <source>Please use and share, this is free software under the terms of the Apache License 2.0.</source>
   <target state="translated">Bitte verwenden und teilen, dies ist freie Software lizenziert unter der Apache License 2.0.</target>
 </trans-unit>
+<trans-unit id="sbd37677b0ba4fc9f">
+  <source>Assembled</source>
+  <target state="translated">Zusammengesetzt</target>
+</trans-unit>
 </body>
 </file>
 </xliff>
