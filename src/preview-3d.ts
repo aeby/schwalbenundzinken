@@ -41,6 +41,7 @@ export class Preview3D extends LitElement {
   private tailGroup = new Group();
   private pinGroup = new Group();
   private assembled = true;
+  private scale = 0.1;
 
   @property()
   workpieceWidth = 0;
@@ -61,7 +62,7 @@ export class Preview3D extends LitElement {
   tailMarkOffset = 0;
 
   get width(): number {
-    return this.workpieceWidth / 10;
+    return this.workpieceWidth * this.scale;
   }
 
   get height(): number {
@@ -69,11 +70,11 @@ export class Preview3D extends LitElement {
   }
 
   get depth(): number {
-    return this.workpieceHeight / 10;
+    return this.workpieceHeight * this.scale;
   }
 
   get cornerOffset(): number {
-    return this.tailMarkOffset / 10;
+    return this.tailMarkOffset * this.scale;
   }
 
   constructor() {
@@ -141,75 +142,6 @@ export class Preview3D extends LitElement {
     this.scene.add(this.tailGroup);
 
     this.addParts(this.pinGroup, this.tailGroup);
-  }
-
-  private setupControls() {
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.15;
-    this.camera.position.set(0, this.height / 2, 20);
-    this.controls.target.set(0, this.height / 2, 0);
-  }
-
-  private setupScene() {
-    const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2);
-    this.scene.add(ambientLight);
-
-    const directionalLight = new DirectionalLight(0xffffff, 2);
-    directionalLight.position.set(1, 1, 20).normalize();
-    this.scene.add(directionalLight);
-
-    const size = 50;
-    const divisions = 50;
-
-    const gridHelper = new GridHelper(size, divisions, 0xdddddd, 0xeeeeee);
-    this.scene.add(gridHelper);
-  }
-
-  private loop = () => {
-    this.controls.update();
-    this.handleResize();
-
-    if (this.assembled && this.tailGroup.position.z > 0) {
-      this.tailGroup.position.z -= 0.2;
-
-      if (this.tailGroup.position.z < 0) {
-        this.tailGroup.position.z = 0;
-      }
-    }
-
-    if (!this.assembled && this.tailGroup.position.z < this.depth * 2) {
-      this.tailGroup.position.z += 0.2;
-    }
-
-    this.renderer.render(this.scene, this.camera);
-  };
-
-  private handleResize = () => {
-    const canvas = this.renderer.domElement;
-
-    const width = canvas.clientWidth;
-    const height = (width / 4) * 3;
-
-    if (canvas.width !== width) {
-      this.renderer.setSize(width, height, false);
-      this.camera.aspect = width / height;
-      this.camera.updateProjectionMatrix();
-    }
-  };
-
-  private onAssembledChange(e: Event): void {
-    this.assembled = (e.target as HTMLInputElement).checked;
-    console.log(this.assembled);
-  }
-
-  private partShape(part: Part): Shape {
-    const shape = new Shape();
-    shape.moveTo(part.bottomLeft.x, part.bottomLeft.y);
-    shape.lineTo(part.topLeft.x, part.topLeft.y);
-    shape.lineTo(part.topRight.x, part.topRight.y);
-    shape.lineTo(part.bottomRight.x, part.bottomRight.y);
-    shape.lineTo(part.bottomLeft.x, part.bottomLeft.y);
-    return shape;
   }
 
   private addParts(pinBoard: Group, tailBoard: Group) {
@@ -298,6 +230,16 @@ export class Preview3D extends LitElement {
     }
   }
 
+  private partShape(part: Part): Shape {
+    const shape = new Shape();
+    shape.moveTo(part.bottomLeft.x, part.bottomLeft.y);
+    shape.lineTo(part.topLeft.x, part.topLeft.y);
+    shape.lineTo(part.topRight.x, part.topRight.y);
+    shape.lineTo(part.bottomRight.x, part.bottomRight.y);
+    shape.lineTo(part.bottomLeft.x, part.bottomLeft.y);
+    return shape;
+  }
+
   private partMesh(shape: Shape, material: Material) {
     const geometry = new ExtrudeGeometry(shape, {
       depth: this.depth,
@@ -305,6 +247,66 @@ export class Preview3D extends LitElement {
     });
 
     return new Mesh(geometry, material);
+  }
+
+  private setupControls() {
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.15;
+    this.camera.position.set(0, this.height / 2, 20);
+    this.controls.target.set(0, this.height / 2, 0);
+  }
+
+  private setupScene() {
+    const ambientLight = new HemisphereLight(0xffffff, 0xdddddd, 2);
+    this.scene.add(ambientLight);
+
+    const directionalLight = new DirectionalLight(0xffffff, 2);
+    directionalLight.position.set(1, 1, 20).normalize();
+    this.scene.add(directionalLight);
+
+    const size = 50;
+    const divisions = 50;
+
+    const gridHelper = new GridHelper(size, divisions, 0xdddddd, 0xeeeeee);
+    this.scene.add(gridHelper);
+  }
+
+  private loop = () => {
+    this.controls.update();
+    this.handleResize();
+    this.animateTailBoard();
+    this.renderer.render(this.scene, this.camera);
+  };
+
+  private animateTailBoard() {
+    if (this.assembled && this.tailGroup.position.z > 0) {
+      this.tailGroup.position.z -= 0.2;
+
+      if (this.tailGroup.position.z < 0) {
+        this.tailGroup.position.z = 0;
+      }
+    }
+
+    if (!this.assembled && this.tailGroup.position.z < this.depth * 2) {
+      this.tailGroup.position.z += 0.2;
+    }
+  }
+
+  private handleResize = () => {
+    const canvas = this.renderer.domElement;
+
+    const width = canvas.clientWidth;
+    const height = (width / 4) * 3;
+
+    if (canvas.width !== width) {
+      this.renderer.setSize(width, height, false);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+    }
+  };
+
+  private onAssembledChange(e: Event): void {
+    this.assembled = (e.target as HTMLInputElement).checked;
   }
 
   static styles = css`
